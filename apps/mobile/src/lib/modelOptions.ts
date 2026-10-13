@@ -61,7 +61,13 @@ function normalizeSelectionOptions(
       };
 }
 
-/** Whether a known Antigravity selection needs setup or a different model. */
+/**
+ * Whether a known selection needs setup or a different model. Antigravity and
+ * omp use dynamic ACP-discovered catalogs whose selected model can be
+ * momentarily absent (setup incomplete, catalog not yet loaded) without the
+ * selection itself being invalid, so both get the same "missing is not
+ * invalid" treatment as the web app.
+ */
 export function isModelSelectionUnavailable(
   config: T3ServerConfig | null | undefined,
   selection: ModelSelection | null | undefined,
@@ -75,7 +81,7 @@ export function isModelSelectionUnavailable(
   const driver =
     provider?.driver ?? config.settings?.providerInstances[selection.instanceId]?.driver;
   return (
-    driver === "antigravity" &&
+    (driver === "antigravity" || driver === "omp") &&
     (!provider ||
       !provider.enabled ||
       !provider.installed ||
@@ -86,9 +92,11 @@ export function isModelSelectionUnavailable(
 }
 
 /**
- * Keep Antigravity selections when setup or catalog changes make them
- * unavailable. Other providers fall through to the server default when they
- * are disabled, missing, or signed out. Without config, keep stored selections.
+ * Keep Antigravity and omp selections when setup or catalog changes make them
+ * unavailable (their catalogs are dynamic ACP discoveries, so a missing model
+ * does not mean the selection is invalid). Other providers fall through to
+ * the server default when they are disabled, missing, or signed out. Without
+ * config, keep stored selections.
  */
 export function resolveSelectableModelSelection(
   config: T3ServerConfig | null | undefined,
@@ -102,7 +110,7 @@ export function resolveSelectableModelSelection(
   );
   const driver =
     provider?.driver ?? config.settings?.providerInstances[selection.instanceId]?.driver;
-  if (driver === "antigravity") {
+  if (driver === "antigravity" || driver === "omp") {
     return selection;
   }
   return provider &&
@@ -114,9 +122,9 @@ export function resolveSelectableModelSelection(
 }
 
 /**
- * Reject legacy models for implicit defaults, except Antigravity selections,
- * which must not silently change after a catalog update. Explicit picks in
- * the settings sheet are unaffected.
+ * Reject legacy models for implicit defaults, except Antigravity and omp
+ * selections, which must not silently change after a catalog update. Explicit
+ * picks in the settings sheet are unaffected.
  */
 export function resolveDefaultableModelSelection(
   config: T3ServerConfig | null | undefined,
@@ -128,7 +136,11 @@ export function resolveDefaultableModelSelection(
   }
   const provider = config.providers.find((candidate) => candidate.instanceId === usable.instanceId);
   const model = provider?.models.find((candidate) => candidate.slug === usable.model);
-  return provider?.driver !== "antigravity" && model?.isLegacy === true ? null : usable;
+  return provider?.driver !== "antigravity" &&
+    provider?.driver !== "omp" &&
+    model?.isLegacy === true
+    ? null
+    : usable;
 }
 
 export function resolveNewTaskModelSelection(input: {
@@ -158,7 +170,8 @@ export function buildModelOptions(
       !provider.enabled ||
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
-      (provider.driver === "antigravity" && provider.availability === "unavailable")
+      ((provider.driver === "antigravity" || provider.driver === "omp") &&
+        provider.availability === "unavailable")
     ) {
       continue;
     }

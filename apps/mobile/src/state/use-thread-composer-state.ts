@@ -378,10 +378,7 @@ export function useThreadComposerState() {
       selectedEnvironmentRuntime?.connectionState === "connected" &&
       isModelSelectionUnavailable(serverConfig, modelSelection)
     ) {
-      Alert.alert(
-        "Antigravity model unavailable",
-        "Set up Antigravity on web or desktop, or choose another model.",
-      );
+      Alert.alert("Model unavailable", "Set it up on web or desktop, or choose another model.");
       return null;
     }
     const provider = serverConfig?.providers.find(

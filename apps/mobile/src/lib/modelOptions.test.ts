@@ -339,6 +339,80 @@ describe("mobile model options", () => {
     });
   });
 
+  describe("omp selections", () => {
+    const selection = {
+      instanceId: ProviderInstanceId.make("omp_work"),
+      model: "openai/gpt-5.2",
+    };
+    const model = {
+      slug: selection.model,
+      name: "GPT-5.2",
+      subProvider: "OpenAI",
+      isCustom: false,
+      isDefault: true,
+      isLegacy: false,
+      capabilities: null,
+    };
+    const config = {
+      providers: [
+        {
+          instanceId: selection.instanceId,
+          driver: "omp",
+          displayName: "omp Work",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [model],
+        },
+      ],
+    } as unknown as ServerConfig;
+
+    it.each([
+      ["disabled", { enabled: false }],
+      ["uninstalled", { installed: false }],
+      ["signed out", { auth: { status: "unauthenticated" } }],
+      ["unavailable", { availability: "unavailable" }],
+    ] as const)(
+      "keeps a %s provider's selection instead of blocking the send",
+      (_state, update) => {
+        const unavailableConfig = {
+          ...config,
+          providers: config.providers.map((provider) => ({ ...provider, ...update })),
+        };
+
+        expect(resolveSelectableModelSelection(unavailableConfig, selection)).toBe(selection);
+        expect(resolveDefaultableModelSelection(unavailableConfig, selection)).toBe(selection);
+        expect(isModelSelectionUnavailable(unavailableConfig, selection)).toBe(true);
+        const [option] = buildModelOptions(unavailableConfig, selection);
+        expect(option).toMatchObject({
+          providerDriver: "omp",
+          providerLabel: "omp Work",
+          isUnavailable: true,
+        });
+        expect(option?.selection).toBe(selection);
+      },
+    );
+
+    it("keeps an exact selection when its model leaves and returns to the catalog", () => {
+      const changedConfig = {
+        ...config,
+        providers: config.providers.map((provider) => ({
+          ...provider,
+          models: provider.models.map((model) => ({ ...model, slug: "openai/gpt-5.9" })),
+        })),
+      };
+
+      expect(resolveDefaultableModelSelection(changedConfig, selection)).toBe(selection);
+      expect(isModelSelectionUnavailable(changedConfig, selection)).toBe(true);
+
+      const [restored] = buildModelOptions(config, selection);
+      expect(isModelSelectionUnavailable(config, selection)).toBe(false);
+      expect(restored?.isUnavailable).not.toBe(true);
+      expect(restored?.selection).toBe(selection);
+      expect(resolveDefaultableModelSelection(config, selection)).toBe(selection);
+    });
+  });
+
   it("keeps legacy models out of implicit defaults", () => {
     const config = {
       providers: [

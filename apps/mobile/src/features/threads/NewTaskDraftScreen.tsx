@@ -1202,10 +1202,7 @@ export function NewTaskDraftScreen(props: {
       environmentConnected &&
       isModelSelectionUnavailable(selectedEnvironmentServerConfig, modelSelection)
     ) {
-      Alert.alert(
-        "Antigravity model unavailable",
-        "Set up Antigravity on web or desktop, or choose another model.",
-      );
+      Alert.alert("Model unavailable", "Set it up on web or desktop, or choose another model.");
       return;
     }
     // T3's own limits command is answered by the thread composer; a new task would
